@@ -1,11 +1,13 @@
 {
-    "compilerOptions": {
-        "target": "ESNext",                                  
-        "module": "ESNext",                               
-        "moduleResolution": "node",                       
-        "esModuleInterop": true,                          
-        "forceConsistentCasingInFileNames": true,         
-        "strict": true,                                   
-        "skipLibCheck": true                              
-    }
+  "compilerOptions": {
+    "jsx": "react",
+    "target": "ESNext",                                  
+    "module": "ESNext",                               
+    "moduleResolution": "bundler",                       
+    "esModuleInterop": true,                          
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,         
+    "strict": true,                                   
+    "skipLibCheck": true                              
+  }
 }
