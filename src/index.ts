@@ -1,61 +1,53 @@
-import { type Participant, registerPlugin } from '@pexip/plugin-api'
+import {
+  type InfinityParticipant,
+  type ParticipantID,
+  ParticipantActivities,
+  registerPlugin
+} from '@pexip/plugin-api'
 
-const callingAdps: Participant[] = []
-const pendingAdps: Participant[] = []
+const PLUGIN_VERSION = 0
+const EMPTY = 0
+
+// ADPs that are currently being dialed, indexed by participant UUID
+const callingAdps = new Map<ParticipantID, InfinityParticipant>()
+// ADPs that failed to connect, indexed by URI
+const pendingAdps = new Map<string, InfinityParticipant>()
 
 const plugin = await registerPlugin({
   id: 'plugin-retry-adp',
-  version: 0
+  version: PLUGIN_VERSION
 })
 
-plugin.events.participants.add((event) => {
-  const participants = getParticipantsFromEvent(event)
+// An ADP trying to connect (it could also be an outgoing call)
+const isConnectingAdp = (participant: InfinityParticipant): boolean =>
+  participant.serviceType === 'connecting' &&
+  participant.protocol === 'sip' &&
+  participant.vendor === 'Unknown'
 
-  // Get if any ADP is trying to connect (It could be also an outgoing call)
-  const adp = participants.filter((participant) => {
-    if (
-      participant.serviceType === 'connecting' &&
-      participant.protocol === 'sip' &&
-      participant.vendor === 'Unknown'
-    ) {
-      return true
-    } else {
-      return false
-    }
-  })
+const handleParticipantUpdate = (participant: InfinityParticipant): void => {
+  if (isConnectingAdp(participant)) {
+    callingAdps.set(participant.uuid, participant)
+  } else if (participant.serviceType !== 'connecting') {
+    callingAdps.delete(participant.uuid)
+    pendingAdps.delete(participant.uri)
+  }
+}
 
-  // Remove the users that are already connected
-  callingAdps.forEach((adp, index) => {
-    const connected = participants.some((participant) => participant.uuid === adp.uuid && participant.serviceType !== 'connecting')
-    if (connected) {
-      // Remove from the array
-      callingAdps.splice(index, 1)
-    }
-  })
-  pendingAdps.forEach((adp, index) => {
-    const connected = participants.some((participant) => participant.uuid === adp.uuid && participant.serviceType !== 'connecting')
-    if (connected) {
-      // Remove from the array
-      pendingAdps.splice(index, 1)
-    }
-  })
-
-  // Add the users to the array if not are already there
-  adp.forEach((participant) => {
-    const found = callingAdps.some((adp) => adp.uuid === participant.uuid)
-    if (!found) {
-      callingAdps.push(participant)
-    }
-  })
-})
-
-plugin.events.participantLeft.add(async (event) => {
-  const participant = getParticipantFromEvent(event)
-  const found = callingAdps.some((adp) => adp.uuid === participant.uuid)
-
-  if (found) {
-    pendingAdps.push(participant)
+const handleParticipantLeave = async (participant: InfinityParticipant): Promise<void> => {
+  if (callingAdps.delete(participant.uuid)) {
+    pendingAdps.set(participant.uri, participant)
     await plugin.ui.showToast({ message: `Failed the dial out to ${participant.uri}` })
+  }
+}
+
+plugin.events.participantsActivities.add((activities) => {
+  for (const { activity } of activities) {
+    if (activity.type === ParticipantActivities.Leave) {
+      handleParticipantLeave(activity.participant)
+        .catch(console.error)
+    } else {
+      handleParticipantUpdate(activity.participant)
+    }
   }
 })
 
@@ -67,7 +59,7 @@ const button = await plugin.ui.addButton({
 })
 
 button.onClick.add(async () => {
-  if (pendingAdps.length === 0) {
+  if (pendingAdps.size === EMPTY) {
     await plugin.ui.showPrompt({
       title: 'No pending ADP',
       description: 'There isn\'t any pending ADP (Automatically Dialed Participant) request.',
@@ -84,9 +76,9 @@ button.onClick.add(async () => {
           adp: {
             type: 'select',
             name: 'Select ADP',
-            options: pendingAdps.map((participant) => ({
-              id: participant.uri,
-              label: participant.uri
+            options: [...pendingAdps.keys()].map((uri) => ({
+              id: uri,
+              label: uri
             }))
           }
         },
@@ -94,46 +86,17 @@ button.onClick.add(async () => {
       }
     })
     form.onInput.add((input) => {
-      console.log(input)
-      if (input.adp != null) {
-        for (let i = 0; i < pendingAdps.length; i++) {
-          if (pendingAdps[i].uri === input.adp) {
-            pendingAdps.splice(i, 1)
-            break
-          }
-        }
+      if (pendingAdps.delete(input.adp)) {
         plugin.ui.showToast({ message: `Calling to ${input.adp}` })
-          .catch((e) => { console.error(e) })
+          .catch(console.error)
         plugin.conference.dialOut({
           protocol: 'sip',
           role: 'GUEST',
           destination: input.adp
         })
-          .catch((e) => { console.error(e) })
+          .catch(console.error)
       }
-      form.remove().catch((e) => { console.error(e) })
+      form.remove().catch(console.error)
     })
   }
 })
-
-const getParticipantFromEvent = (event: any): Participant => {
-  let participant: Participant
-  if (event.participant != null) {
-    participant = event.participant as Participant
-  } else {
-    participant = event as unknown as Participant
-  }
-  console.log(event)
-  console.log(participant)
-  return participant
-}
-
-const getParticipantsFromEvent = (event: any): Participant[] => {
-  let participants: Participant[]
-  if (event.participants != null) {
-    participants = event.participants as Participant[]
-  } else {
-    participants = event as unknown as Participant[]
-  }
-  return participants
-}
