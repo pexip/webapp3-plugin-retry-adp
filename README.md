@@ -11,7 +11,7 @@ beginning of the conference of if the user rejected the call.
 
   | NodeJS   | NPM     |
   | -------- | ------- |
-  | v20.12.2 | v10.5.0 |
+  | v22.19.0 | v10.5.0 |
 
 - Create a file `.env` in the root of the project with the following content:
 
