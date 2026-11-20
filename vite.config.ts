@@ -69,6 +69,7 @@ export default defineConfig(({ mode }) => {
       open: '/webapp3/',
       allowedHosts: ['localhost'],
       port: port,
+      strictPort: true,
       proxy: {
         '/api': {
           target: infinityTarget,
