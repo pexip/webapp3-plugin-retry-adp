@@ -33,18 +33,21 @@ const handleParticipantUpdate = (participant: InfinityParticipant): void => {
   }
 }
 
-const handleParticipantLeave = async (participant: InfinityParticipant): Promise<void> => {
+const handleParticipantLeave = async (
+  participant: InfinityParticipant
+): Promise<void> => {
   if (callingAdps.delete(participant.uuid)) {
     pendingAdps.set(participant.uri, participant)
-    await plugin.ui.showToast({ message: `Failed the dial out to ${participant.uri}` })
+    await plugin.ui.showToast({
+      message: `Failed the dial out to ${participant.uri}`
+    })
   }
 }
 
 plugin.events.participantsActivities.add((activities) => {
   for (const { activity } of activities) {
     if (activity.type === ParticipantActivities.Leave) {
-      handleParticipantLeave(activity.participant)
-        .catch(console.error)
+      handleParticipantLeave(activity.participant).catch(console.error)
     } else {
       handleParticipantUpdate(activity.participant)
     }
@@ -62,7 +65,8 @@ button.onClick.add(async () => {
   if (pendingAdps.size === EMPTY) {
     await plugin.ui.showPrompt({
       title: 'No pending ADP',
-      description: 'There isn\'t any pending ADP (Automatically Dialed Participant) request.',
+      description:
+        "There isn't any pending ADP (Automatically Dialed Participant) request.",
       prompt: {
         primaryAction: 'Close'
       }
@@ -70,7 +74,8 @@ button.onClick.add(async () => {
   } else {
     const form = await plugin.ui.addForm({
       title: 'Pending ADPs',
-      description: 'Pending ADPs (Automatically Dialed Participant) detected. Do you want to retry to dial the participant?',
+      description:
+        'Pending ADPs (Automatically Dialed Participant) detected. Do you want to retry to dial the participant?',
       form: {
         elements: {
           adp: {
@@ -87,13 +92,15 @@ button.onClick.add(async () => {
     })
     form.onInput.add((input) => {
       if (pendingAdps.delete(input.adp)) {
-        plugin.ui.showToast({ message: `Calling to ${input.adp}` })
+        plugin.ui
+          .showToast({ message: `Calling to ${input.adp}` })
           .catch(console.error)
-        plugin.conference.dialOut({
-          protocol: 'sip',
-          role: 'GUEST',
-          destination: input.adp
-        })
+        plugin.conference
+          .dialOut({
+            protocol: 'sip',
+            role: 'GUEST',
+            destination: input.adp
+          })
           .catch(console.error)
       }
       form.remove().catch(console.error)

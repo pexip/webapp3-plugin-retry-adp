@@ -12,9 +12,9 @@ export default [
     }
   },
   {
-    files: ["**/*.tsx", "**/*.ts"],
+    files: ['**/*.tsx', '**/*.ts']
   },
   {
-    ignores: ['dist', 'eslint.config.js', 'vite.config.ts'],
+    ignores: ['dist', 'eslint.config.js', 'vite.config.ts']
   }
 ]
